@@ -27,7 +27,7 @@
                 echo "Deployment branch does not exist"
             fi
         - name: Create deployment branch if it does not exist
-          if: steps.check-deployment.outputs.deployment_does_not_exist == 'true'
+          if: steps.check-deployment.outputs.deployment_does_not_exist == 'false'
           run: |
             git checkout --orphan deployment
             git rm -rf .
@@ -75,7 +75,7 @@
             Access_Token_Secret: ${{ secrets.Access_Token_Secret }}
           run: python app.py
         - name: Commit config.json to default repo if it has changed
-          if: steps.run-python-file.outputs.changed_config == 'true'
+          if: steps.run-python-file.outputs.changed_config == 'false'
           run: |
             git checkout ${{ github.ref_name }}
             git config user.name github-actions
