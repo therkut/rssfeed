@@ -39,15 +39,15 @@
             pip install feedparser tweepy python-dotenv newspaper3k beautifulsoup4
         - name: Provide env variables and run the script
           id: run-python-file
+          run: python app.py
           env:
             Bearer_Token: ${{ secrets.Bearer_Token }}
             API_Key: ${{ secrets.API_KEY }}
             API_Key_Secret: ${{ secrets.API_Key_Secret }}
             Access_Token: ${{ secrets.Access_Token }}
             Access_Token_Secret: ${{ secrets.Access_Token_Secret }}
-          run: python app.py
         - name: Commit config.json to default repo if it has changed
-          if: steps.run-python-file.outputs.changed_config == 'false'
+          if: steps.run-python-file.outputs.changed_config == 'true'
           run: |
             git checkout ${{ github.ref_name }}
             git config user.name github-actions
