@@ -1,0 +1,91 @@
+---
+  name: rss bot
+  on:
+    schedule:
+      - cron: "0 0/3 * * *"
+    push:
+      branches:
+        - master
+    workflow_dispatch:
+  jobs:
+    check-if-deployment-branch-exists:
+      runs-on: ubuntu-latest
+      steps:
+        - name: Checkout the repo
+          uses: actions/checkout@v4
+          with:
+            fetch-depth: 1
+        - name: Check if deployment branch exists
+          id: check-deployment
+          run: |
+            git branch -r > branches.txt
+            if grep -Fxq "  origin/deployment" branches.txt
+            then
+                echo "::set-output name=deployment_does_not_exist::false"
+            else
+                echo "::set-output name=deployment_does_not_exist::true"
+                echo "Deployment branch does not exist"
+            fi
+        - name: Create deployment branch if it does not exist
+          if: steps.check-deployment.outputs.deployment_does_not_exist == 'true'
+          run: |
+            git checkout --orphan deployment
+            git rm -rf .
+            date > last-run-time.txt
+            git add last-run-time.txt
+            git config user.name github-actions
+            git config user.email github-actions@github.com
+            git commit -m "Adding inital commit of last run time text file"
+            git push origin deployment
+    run-rss-bot:
+      runs-on: ubuntu-latest
+      needs: check-if-deployment-branch-exists
+      steps:
+        - name: Checkout the deployment branch of the repo
+          uses: actions/checkout@v4
+          with:
+            ref: deployment
+        - name: Fetch files from the default branch of the repo (the branch the workflow was called from).
+          run: |
+            # Will not work if it is private repo, since it cannot be accessed by curl. Have to supply the github token in the header when curling
+            git checkout deployment
+            curl --output app.py --location "${{ github.server_url }}/${{ github.repository }}/raw/${{ github.ref_name }}/app.py"
+            curl --output config.json --location "${{ github.server_url }}/${{ github.repository }}/raw/${{ github.ref_name }}/config.json"
+            curl --output default-config.json --location "${{ github.server_url }}/${{ github.repository }}/raw/${{ github.ref_name }}/default-config.json"
+            curl --output requirements.txt --location "${{ github.server_url }}/${{ github.repository }}/raw/${{ github.ref_name }}/requirements.txt"
+            # Do some operation that changes a file in the git repo, to ensure "git add ." does not fail
+            date > last-run-time.txt
+        - name: Setup python and pip
+          uses: actions/setup-python@v4
+          with:
+            python-version: "3.12.0"
+            cache: "pip"
+        - name: Install required modules from requirements.txt
+          run: |
+            # Installing required modules
+            python -m pip install --upgrade pip
+            pip install feedparser tweepy python-dotenv newspaper3k beautifulsoup4
+        - name: Provide env variables and run the script
+          id: run-python-file
+          env:
+            Bearer_Token: ${{ secrets.Bearer_Token }}
+            API_Key: ${{ secrets.API_KEY }}
+            API_Key_Secret: ${{ secrets.API_Key_Secret }}
+            Access_Token: ${{ secrets.Access_Token }}
+            Access_Token_Secret: ${{ secrets.Access_Token_Secret }}
+          run: python app.py
+        - name: Commit config.json to default repo if it has changed
+          if: steps.run-python-file.outputs.changed_config == 'true'
+          run: |
+            git checkout ${{ github.ref_name }}
+            git config user.name github-actions
+            git config user.email github-actions@github.com
+            git add config.json
+            git commit -m "Commiting config.json due to changes made by script at $(TZ=":Asia/Calcutta" date +"%d/%m/%y %r") IST"
+        - name: Commit changes in the deployment branch
+          run: |
+            # Adds all changes, commits and pushes
+            git checkout deployment
+            git add --all -- :!requirements.txt :!config.json :!default-config.json :!app.py
+            git commit -m "Ran workflow at $(TZ=":Asia/Calcutta" date +"%d/%m/%y %r") IST"
+            git push origin deployment
