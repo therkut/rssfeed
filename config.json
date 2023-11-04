@@ -16,12 +16,6 @@
     "rss_feeds_to_fetch": {
         "description_from_rss_feed": [],
         "description_from_html": [
-            "https://www.spordetay.com.tr/sondakika.xml",
-            "https://www.haberturk.com/rss/spor.xml",
-            "https://www.futboo.com/rss.xml",
-            "https://www.fotomac.com.tr/rss/anasayfa.xml",
-            "https://www.mynet.com/spor/rss",
-            "https://www.sozcu.com.tr/rss/spor.xml",
             "https://www.ntv.com.tr/sporskor.rss"
         ]
     },
